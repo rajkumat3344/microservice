@@ -1,0 +1,11 @@
+com\rduttaassesment\productservice\service\ProductService.class
+com\rduttaassesment\productservice\dto\ProductRequest.class
+com\rduttaassesment\productservice\model\Product.class
+com\rduttaassesment\productservice\serviceimpl\ProductServiceImpl.class
+com\rduttaassesment\productservice\controller\ProductController.class
+com\rduttaassesment\productservice\dto\ProductResponse$ProductResponseBuilder.class
+com\rduttaassesment\productservice\dto\ProductRequest$ProductRequestBuilder.class
+com\rduttaassesment\productservice\model\Product$ProductBuilder.class
+com\rduttaassesment\productservice\dto\ProductResponse.class
+com\rduttaassesment\productservice\repository\ProductRepository.class
+com\rduttaassesment\productservice\ProductServiceApplication.class
