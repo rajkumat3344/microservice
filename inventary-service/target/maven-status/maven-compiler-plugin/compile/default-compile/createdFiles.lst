@@ -1,0 +1,6 @@
+com\rduttaassesment\inventaryservice\controller\InventoryController.class
+com\rduttaassesment\inventaryservice\serviceimpl\InventaryServiceImpl.class
+com\rduttaassesment\inventaryservice\repository\InventaryRepository.class
+com\rduttaassesment\inventaryservice\model\Inventary.class
+com\rduttaassesment\inventaryservice\InventaryServiceApplication.class
+com\rduttaassesment\inventaryservice\service\InventaryService.class
