@@ -6,7 +6,11 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.rduttaassesment.orderservice.dto.InventaryResponse;
+import com.rduttaassesment.orderservice.events.OrderPlacedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.sleuth.Span;
+import org.springframework.cloud.sleuth.Tracer;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,14 +32,19 @@ public class OrderServiceImpl implements OrderService{
     private final OrderRepository orderRep;
     private final WebClient.Builder webClientBuilder;
 
+    private final Tracer tracer;
+
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRep, WebClient.Builder webClientBuilder) {
+    public OrderServiceImpl(OrderRepository orderRep, WebClient.Builder webClientBuilder, Tracer tracer, KafkaTemplate kafkaTemplate) {
         this.orderRep = orderRep;
         this.webClientBuilder = webClientBuilder;
+        this.tracer = tracer;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @Override
-    public void placeOrder(OrderRequest orderRequest) {
+    public String placeOrder(OrderRequest orderRequest) {
        Order order = new Order();
        order.setOrderNumber(UUID.randomUUID().toString());
 
@@ -47,22 +56,28 @@ public class OrderServiceImpl implements OrderService{
         //Collect all the skuCode from the Order object
         List<String> skuCodes = order.getOrderLineItems().stream().map(OrderLineItems::getSkuCode).collect(Collectors.toList());
 
-        //Call inventary service before proceessing the Order if Item/Product present then Order it else Throw not in Stock.
-       InventaryResponse[] inventaryResp= webClientBuilder.build().get().uri("http://inventary-service/api/inventary",
-                uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()).retrieve().bodyToMono(InventaryResponse[].class).block();
+        log.info("Calling inventary service");
+       Span inventaryServiceLookUp =  tracer.nextSpan().name("InventaryServiceLookUp");
 
-        //If one of the product not found this return false or if statement got false then it will go to else part
-        boolean allProductsInStock = Arrays.stream(inventaryResp).allMatch(InventaryResponse::isInStock);
+       try(Tracer.SpanInScope spanInScope = tracer.withSpan(inventaryServiceLookUp.start())){
+           //Call inventary service before proceessing the Order if Item/Product present then Order it else Throw not in Stock.
+           InventaryResponse[] inventaryResp= webClientBuilder.build().get().uri("http://inventary-service/api/inventary",
+                   uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()).retrieve().bodyToMono(InventaryResponse[].class).block();
+
+           //If one of the product not found this return false or if statement got false then it will go to else part
+           boolean allProductsInStock = Arrays.stream(inventaryResp).allMatch(InventaryResponse::isInStock);
 
 
-        if(allProductsInStock){
-            orderRep.save(order);
-        }else{
-            throw new IllegalArgumentException("Product is not in stock, please try again later.");
-        }
-
-        log.info("Order {} is saved.", order.getId());
-
+           if(allProductsInStock){
+               orderRep.save(order);
+               kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
+               return "Order placed successfully.";
+           }else{
+               throw new IllegalArgumentException("Product is not in stock, please try again later.");
+           }
+       }finally {
+           inventaryServiceLookUp.end();
+       }
     }
 
     private OrderLineItems mapToDTO(OrderLineItemsDTO orderLineItemsDTO){

@@ -1,6 +1,7 @@
 package com.rduttaassesment.inventaryservice.serviceimpl;
 
 import com.rduttaassesment.inventaryservice.dto.InventaryResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class InventaryServiceImpl implements InventaryService{
 
     private final InventaryRepository inventaryRepository;
@@ -22,10 +24,9 @@ public class InventaryServiceImpl implements InventaryService{
     }
 
 
-
     @Transactional(readOnly = true)
     @Override
-    public List<InventaryResponse> isInStock(List<String> skuCode) {
+    public List<InventaryResponse> isInStock(List<String> skuCode){
         return inventaryRepository.findBySkuCodeIn(skuCode).stream().map(inventary ->
             InventaryResponse.builder().skuCode(inventary.getSkuCode())
                     .isInStock(inventary.getQuantity() > 0)
